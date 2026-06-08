@@ -4,12 +4,9 @@
 
 import * as vscode from 'vscode';
 import type { ReadmeInput, SourceFile } from './prompts';
+import { summarizeCoverage } from './coverage';
 
 const EXCLUDE = '**/{node_modules,.git,dist,out,.venv,venv,__pycache__,.mypy_cache}/**';
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function toSourceFile(document: vscode.TextDocument): SourceFile {
   return {
@@ -23,7 +20,9 @@ function toSourceFile(document: vscode.TextDocument): SourceFile {
 export function getActiveFileContext(): SourceFile {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    throw new Error('No active editor. Open the file you want @devassist to work on, then run the command again.');
+    throw new Error(
+      'No active editor. Open the file you want @devassist to work on, then run the command again.',
+    );
   }
   return toSourceFile(editor.document);
 }
@@ -74,18 +73,8 @@ export async function findCoverageReport(file: SourceFile): Promise<string | und
   }
 
   const document = await vscode.workspace.openTextDocument(uris[0]);
-  const xml = document.getText();
   const base = file.path.split('/').pop() ?? file.path;
-  const match = new RegExp(
-    `<class[^>]*filename="([^"]*${escapeRegExp(base)})"[^>]*line-rate="([0-9.]+)"`,
-    'i',
-  ).exec(xml);
-
-  if (match) {
-    const percent = Math.round(parseFloat(match[2]) * 100);
-    return `Cobertura coverage.xml reports ${percent}% line coverage for ${match[1]}.`;
-  }
-  return `A coverage.xml was found but had no entry for ${base}; treat the file as untested unless tests exist.`;
+  return summarizeCoverage(document.getText(), base);
 }
 
 /** Project style guide: workspace copy if present, else the bundled standard. */
@@ -93,12 +82,16 @@ export async function loadStyleGuide(extensionUri: vscode.Uri): Promise<string> 
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (folder) {
     try {
-      const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder.uri, 'style-guide.md'));
+      const bytes = await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(folder.uri, 'style-guide.md'),
+      );
       return Buffer.from(bytes).toString('utf8');
     } catch {
       // No project-level guide; fall back to the bundled one.
     }
   }
-  const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionUri, 'style-guide.md'));
+  const bytes = await vscode.workspace.fs.readFile(
+    vscode.Uri.joinPath(extensionUri, 'style-guide.md'),
+  );
   return Buffer.from(bytes).toString('utf8');
 }

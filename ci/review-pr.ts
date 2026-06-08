@@ -18,31 +18,7 @@ import { Octokit } from '@octokit/rest';
 import { coveragePrompt, stylePrompt, testsPrompt, type SourceFile } from '../src/core/prompts';
 import type { ModelProvider } from '../src/core/modelProvider';
 import { CiModelProvider, ModelNotConfiguredError } from './CiModelProvider';
-
-const LANGUAGE_BY_EXTENSION: Record<string, string> = {
-  py: 'python',
-  ts: 'typescript',
-  tsx: 'typescriptreact',
-  js: 'javascript',
-  jsx: 'javascriptreact',
-  java: 'java',
-  go: 'go',
-  rb: 'ruby',
-  rs: 'rust',
-  c: 'c',
-  h: 'c',
-  cpp: 'cpp',
-  cs: 'csharp',
-};
-
-function guessLanguage(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  return LANGUAGE_BY_EXTENSION[ext] ?? 'plaintext';
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { addedLines, guessLanguage, parseStyleViolations } from './lib';
 
 function getRepoSlug(): { owner: string; repo: string } {
   const slug = process.env.GITHUB_REPOSITORY;
@@ -76,48 +52,11 @@ function loadStyleGuide(): string {
   }
 }
 
-/** New-file line numbers added in this patch (valid RIGHT-side comment anchors). */
-function addedLines(patch: string | undefined): Set<number> {
-  const result = new Set<number>();
-  if (!patch) {
-    return result;
-  }
-  let lineNumber = 0;
-  for (const line of patch.split('\n')) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
-    if (hunk) {
-      lineNumber = parseInt(hunk[1], 10);
-      continue;
-    }
-    if (line.startsWith('+') && !line.startsWith('+++')) {
-      result.add(lineNumber);
-      lineNumber += 1;
-    } else if (line.startsWith('-') && !line.startsWith('---')) {
-      // Removed line: old side only, no new line number.
-    } else {
-      lineNumber += 1;
-    }
-  }
-  return result;
-}
-
 interface InlineComment {
   path: string;
   line: number;
   side: 'RIGHT';
   body: string;
-}
-
-function parseStyleViolations(review: string, path: string): Array<{ line: number; body: string }> {
-  const pattern = new RegExp(`${escapeRegExp(path)}:(\\d+)\\s*[—:-]\\s*(.+)`);
-  const violations: Array<{ line: number; body: string }> = [];
-  for (const line of review.split('\n')) {
-    const match = pattern.exec(line);
-    if (match) {
-      violations.push({ line: parseInt(match[1], 10), body: match[2].trim() });
-    }
-  }
-  return violations;
 }
 
 async function collect(provider: ModelProvider, prompt: string): Promise<string> {
@@ -142,7 +81,12 @@ async function run(): Promise<void> {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const styleGuide = loadStyleGuide();
 
-  const files = await octokit.rest.pulls.listFiles({ owner, repo, pull_number: pullNumber, per_page: 100 });
+  const files = await octokit.rest.pulls.listFiles({
+    owner,
+    repo,
+    pull_number: pullNumber,
+    per_page: 100,
+  });
 
   const sections: string[] = [];
   const comments: InlineComment[] = [];
@@ -170,13 +114,21 @@ async function run(): Promise<void> {
     const anchors = addedLines(change.patch);
     for (const violation of parseStyleViolations(styleReview, change.filename)) {
       if (anchors.has(violation.line)) {
-        comments.push({ path: change.filename, line: violation.line, side: 'RIGHT', body: violation.body });
+        comments.push({
+          path: change.filename,
+          line: violation.line,
+          side: 'RIGHT',
+          body: violation.body,
+        });
       }
     }
 
     if (change.filename.endsWith('.py')) {
       // CI assesses coverage from the source alone; the editor command also feeds related tests + coverage.xml.
-      const coverage = await collect(provider, coveragePrompt({ file, relatedTests: [], coverageReport: undefined }));
+      const coverage = await collect(
+        provider,
+        coveragePrompt({ file, relatedTests: [], coverageReport: undefined }),
+      );
       sections.push(`### Coverage & testability\n\n${coverage}`);
 
       const tests = await collect(provider, testsPrompt(file));
@@ -202,12 +154,18 @@ async function run(): Promise<void> {
   console.log(`DevAssist: posted a review with ${comments.length} inline comment(s).`);
 }
 
-run().catch((error: unknown) => {
-  if (error instanceof ModelNotConfiguredError) {
-    console.log(`::warning::${error.message}`);
-    return;
-  }
-  console.error(error);
-  console.log(`::error::DevAssist review failed: ${error instanceof Error ? error.message : String(error)}`);
-  process.exit(1);
-});
+// Only run when invoked directly (e.g. `node out/ci/review-pr.js`), so the
+// module can be imported by tests without firing a real review.
+if (require.main === module) {
+  run().catch((error: unknown) => {
+    if (error instanceof ModelNotConfiguredError) {
+      console.log(`::warning::${error.message}`);
+      return;
+    }
+    console.error(error);
+    console.log(
+      `::error::DevAssist review failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  });
+}

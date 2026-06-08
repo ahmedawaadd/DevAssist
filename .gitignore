@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+out/
+*.js
+*.js.map
+
+# Editor / OS
+.DS_Store
+*.log
+
+# VS Code extension package
+*.vsix
+
+# Coverage
+coverage/
+coverage.xml
+.nyc_output/

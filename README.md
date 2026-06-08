@@ -80,6 +80,23 @@ npm run compile      # or: npm run watch
 Then press **F5** in VS Code to launch the Extension Development Host, open a
 file, and chat with `@devassist`.
 
+## Development
+
+The project is checked by CI on every push and pull request
+(`.github/workflows/ci.yml`):
+
+```bash
+npm run typecheck    # tsc --noEmit
+npm run lint         # ESLint
+npm run format       # Prettier (check only; use format:write to fix)
+npm test             # compile, then run the node:test suite in out/test
+```
+
+Tests live in `test/` and exercise the pure, host-independent logic — prompt
+construction (`src/core/prompts.ts`), Cobertura parsing (`src/core/coverage.ts`),
+and the CI diff/review helpers (`ci/lib.ts`). Anything that imports `vscode` is
+kept thin so the testable core has no editor dependency.
+
 ## CI pull-request review
 
 `.github/workflows/devassist-pr.yml` can run the same style/coverage/tests
@@ -105,11 +122,14 @@ src/
   core/
     modelProvider.ts    The model-access seam (VsCodeLmProvider over vscode.lm)
     prompts.ts          Single source of truth for every prompt (pure, no I/O)
+    coverage.ts         Pure Cobertura parsing (no vscode, unit-tested)
     context.ts          Turns editor/workspace state into prompt inputs
   handlers/             One handler per slash command (tests, readme, coverage, style)
 ci/
   review-pr.ts          Optional GitHub Actions PR reviewer
+  lib.ts                Pure CI helpers: language guess, diff parsing, review parsing
   CiModelProvider.ts    CI model seam: a stub you must configure
+test/                   node:test unit tests for the pure modules
 style-guide.md          The bundled default style guide
 ```
 

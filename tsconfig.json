@@ -2,6 +2,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
+    "ignoreDeprecations": "5.0",
     "target": "ES2022",
     "lib": ["ES2022"],
     "outDir": "out",
@@ -12,6 +13,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "ci/**/*.ts"],
+  "include": ["src/**/*.ts", "ci/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "out"]
 }
