@@ -1,0 +1,24 @@
+name: DevAssist PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: npm run compile
+      - run: node out/ci/review-pr.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEVASSIST_MODEL_ENDPOINT: ${{ secrets.DEVASSIST_MODEL_ENDPOINT }}
+          DEVASSIST_MODEL_TOKEN: ${{ secrets.DEVASSIST_MODEL_TOKEN }}

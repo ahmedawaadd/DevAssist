@@ -1,0 +1,46 @@
+{
+  "name": "devassist",
+  "displayName": "DevAssist",
+  "description": "Pytest test generation, README generation, coverage/testability review, and style review — via Copilot models in chat and on pull requests.",
+  "version": "0.1.0",
+  "publisher": "devassist",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["AI", "Chat", "Testing"],
+  "main": "./out/src/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "devassist",
+        "name": "devassist",
+        "fullName": "DevAssist",
+        "description": "Generate Pytest tests, READMEs, coverage advice, and style reviews.",
+        "isSticky": true,
+        "commands": [
+          { "name": "tests", "description": "Generate Pytest unit tests for the active file" },
+          { "name": "readme", "description": "Generate a README for the current module/repo" },
+          { "name": "coverage", "description": "Assess test coverage and recommend testability changes" },
+          { "name": "style", "description": "Review the active file against the project style guide" },
+          { "name": "review", "description": "Run style, coverage, and tests in sequence" }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "ci:review": "node out/ci/review-pr.js"
+  },
+  "dependencies": {
+    "@octokit/rest": "^19.0.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0"
+  }
+}
