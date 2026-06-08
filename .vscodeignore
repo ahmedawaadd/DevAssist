@@ -1,0 +1,20 @@
+# Source & build inputs (only compiled JS in out/ ships)
+src/**
+ci/**
+test/**
+out/test/**
+**/*.ts
+**/*.map
+
+# Dev tooling & config
+.github/**
+.vscode/**
+.eslintrc.json
+.eslintignore
+.prettierrc.json
+.gitignore
+.vscodeignore
+tsconfig.json
+node_modules/**
+
+# Keep: out/src/**, out/ci/**, style-guide.md, README.md, LICENSE, package.json

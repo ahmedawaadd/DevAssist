@@ -17,7 +17,10 @@ export async function handleCoverage(
   stream.progress(`Assessing coverage for ${file.path}…`);
   const relatedTests = await findRelatedTests(file);
   const coverageReport = await findCoverageReport(file);
-  for await (const chunk of provider.sendRequest(coveragePrompt({ file, relatedTests, coverageReport }), token)) {
+  for await (const chunk of provider.sendRequest(
+    coveragePrompt({ file, relatedTests, coverageReport }),
+    token,
+  )) {
     stream.markdown(chunk);
   }
 }

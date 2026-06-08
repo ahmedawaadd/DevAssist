@@ -28,6 +28,10 @@ export class CiModelProvider implements ModelProvider {
     return Boolean(this.endpoint && this.token);
   }
 
+  // This is an unimplemented seam: it always throws until a gateway is wired in,
+  // so it deliberately never yields and doesn't read `prompt` yet. The example
+  // request body below (the DECISION POINT) is where both get used.
+  // eslint-disable-next-line require-yield, @typescript-eslint/no-unused-vars
   async *sendRequest(prompt: string, _token?: CancellationLike): AsyncIterable<string> {
     if (!this.configured) {
       throw new ModelNotConfiguredError(

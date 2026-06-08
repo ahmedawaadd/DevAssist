@@ -32,6 +32,12 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "typecheck": "tsc -p ./ --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --check \"{src,ci,test}/**/*.ts\"",
+    "format:write": "prettier --write \"{src,ci,test}/**/*.ts\"",
+    "pretest": "npm run compile",
+    "test": "node --test \"out/test\"",
     "vscode:prepublish": "npm run compile",
     "ci:review": "node out/ci/review-pr.js"
   },
@@ -41,6 +47,15 @@
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/parser": "^7.13.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
     "typescript": "^5.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmedawaadd/devassist.git"
   }
 }
