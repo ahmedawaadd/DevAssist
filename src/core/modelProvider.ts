@@ -1,19 +1,18 @@
 // src/core/modelProvider.ts
-// The model-access seam. The extension uses VsCodeLmProvider (Copilot models
-// via vscode.lm). CI supplies its own implementation, because vscode.lm does
-// not exist outside the editor. Anything that only needs the *interface* must
-// import it with `import type`, so no `vscode` require leaks into CI.
-
-// Callers depend only on the ModelProvider interface, so they don't care
-// whether the model is Copilot, another gateway, or a test double.
+// The model-access seam. The ONLY implementation is VsCodeLmProvider, which
+// talks to the user's Copilot models through vscode.lm. This is deliberate:
+// every request stays on the user's Copilot plan and its data-handling
+// guarantees. There is no external-gateway provider — the interface exists
+// only so handlers can be unit-tested against a fake, never to swap in a
+// different model service.
 
 import * as vscode from 'vscode';
 
 /**
  * Minimal "something that can be cancelled" contract. Defined here rather than
- * importing vscode's CancellationToken so this seam stays free of the editor
- * API; vscode.CancellationToken structurally satisfies it, so the extension
- * can pass its token straight through.
+ * importing vscode's CancellationToken so a fake provider in a test doesn't
+ * need the editor API; vscode.CancellationToken structurally satisfies it, so
+ * the extension can pass its token straight through.
  */
 export interface CancellationLike {
   readonly isCancellationRequested: boolean;
