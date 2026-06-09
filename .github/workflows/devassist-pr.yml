@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
+          cache: npm
+      - run: npm ci
       - run: npm run compile
       - run: node out/ci/review-pr.js
         env:

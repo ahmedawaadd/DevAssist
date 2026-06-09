@@ -23,6 +23,24 @@ test('testsPrompt embeds the file in a fenced block with its language', () => {
   assert.match(prompt, /pytest\.raises/);
 });
 
+test('testsPrompt targets the right framework for TypeScript (incl. tsx)', () => {
+  for (const language of ['typescript', 'typescriptreact']) {
+    const prompt = testsPrompt({ path: 'src/app.ts', language, content: 'export const x = 1;' });
+    assert.match(prompt, /senior TypeScript test engineer/);
+    assert.match(prompt, /Vitest/);
+    // The requested output block is TypeScript regardless of the tsx language id.
+    assert.match(prompt, /single ```typescript code block/);
+    assert.doesNotMatch(prompt, /Pytest/);
+  }
+});
+
+test('testsPrompt picks per-language frameworks and falls back to Python', () => {
+  assert.match(testsPrompt({ path: 'm.go', language: 'go', content: '' }), /table-driven/);
+  assert.match(testsPrompt({ path: 'M.java', language: 'java', content: '' }), /JUnit 5/);
+  // Unknown language falls back to the Python persona rather than crashing.
+  assert.match(testsPrompt({ path: 'x', language: 'cobol', content: '' }), /Pytest/);
+});
+
 test('readmePrompt lists the file tree and includes the focused module', () => {
   const prompt = readmePrompt({
     repoName: 'devassist',

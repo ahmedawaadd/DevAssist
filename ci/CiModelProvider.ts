@@ -1,16 +1,21 @@
 // ci/CiModelProvider.ts
 //
-// STUB — read before enabling the workflow.
-//
 // vscode.lm only exists inside the VS Code editor, so the CI script cannot use
 // Copilot models. This provider is the seam where CI talks to a model instead.
-// It intentionally ships WITHOUT a default endpoint or request contract: we
-// will not invent one or send your code to an unapproved service. You must
-// (1) set DEVASSIST_MODEL_ENDPOINT and DEVASSIST_MODEL_TOKEN as repo secrets,
-// and (2) implement the marked request body to match your gateway. Until then
-// it throws ModelNotConfiguredError and the workflow skips with a warning.
+//
+// It is OPT-IN by design: it does nothing — and sends nothing — until you set
+// the DEVASSIST_MODEL_ENDPOINT and DEVASSIST_MODEL_TOKEN repo secrets to point
+// at your organisation's approved gateway. When unset it throws
+// ModelNotConfiguredError and the workflow skips with a warning, so your code
+// is never shipped to an endpoint you didn't choose.
+//
+// Once configured, it speaks the OpenAI-compatible Chat Completions contract
+// (`POST <endpoint>` with a `messages` array, `Bearer` auth), which Azure
+// OpenAI, most enterprise LLM proxies (e.g. LiteLLM), and self-hosted gateways
+// all expose. If yours differs, this single method is the only thing to adapt.
 
 import type { CancellationLike, ModelProvider } from '../src/core/modelProvider';
+import { parseChatCompletion } from './lib';
 
 export class ModelNotConfiguredError extends Error {
   constructor(message: string) {
@@ -22,47 +27,50 @@ export class ModelNotConfiguredError extends Error {
 export class CiModelProvider implements ModelProvider {
   private readonly endpoint = process.env.DEVASSIST_MODEL_ENDPOINT;
   private readonly token = process.env.DEVASSIST_MODEL_TOKEN;
+  /** Model/deployment name; required by most gateways, overridable per org. */
+  private readonly model = process.env.DEVASSIST_MODEL ?? 'gpt-4o-mini';
 
   /** True once both the endpoint and token secrets are present. */
   get configured(): boolean {
     return Boolean(this.endpoint && this.token);
   }
 
-  // This is an unimplemented seam: it always throws until a gateway is wired in,
-  // so it deliberately never yields and doesn't read `prompt` yet. The example
-  // request body below (the DECISION POINT) is where both get used.
-  // eslint-disable-next-line require-yield, @typescript-eslint/no-unused-vars
-  async *sendRequest(prompt: string, _token?: CancellationLike): AsyncIterable<string> {
+  async *sendRequest(prompt: string, token?: CancellationLike): AsyncIterable<string> {
     if (!this.configured) {
       throw new ModelNotConfiguredError(
         'CI model gateway is not configured. Set the DEVASSIST_MODEL_ENDPOINT and ' +
-          'DEVASSIST_MODEL_TOKEN repo secrets, then implement the request body in ci/CiModelProvider.ts.',
+          'DEVASSIST_MODEL_TOKEN repo secrets to your approved gateway, then re-run.',
       );
     }
 
-    // ───────────────────────── DECISION POINT ─────────────────────────
-    // Wire this to your organisation's approved model gateway and yield its
-    // text. The exact request/response contract is YOURS — adapt the shape
-    // below, then delete the throw at the end of this block.
-    //
-    //   const response = await fetch(this.endpoint!, {
-    //     method: 'POST',
-    //     headers: {
-    //       'content-type': 'application/json',
-    //       authorization: `Bearer ${this.token}`,
-    //     },
-    //     body: JSON.stringify({ prompt }),
-    //   });
-    //   if (!response.ok) {
-    //     throw new Error(`Model gateway returned ${response.status}: ${await response.text()}`);
-    //   }
-    //   const data = (await response.json()) as { text: string };
-    //   yield data.text;
-    //   return;
-    // ───────────────────────────────────────────────────────────────────
+    // Bridge the optional cancellation signal onto an AbortController.
+    const controller = new AbortController();
+    if (token) {
+      if (token.isCancellationRequested) controller.abort();
+      else token.onCancellationRequested(() => controller.abort());
+    }
 
-    throw new ModelNotConfiguredError(
-      'CiModelProvider request body is not implemented. Adapt the DECISION POINT block in ci/CiModelProvider.ts to your gateway.',
-    );
+    const response = await fetch(this.endpoint as string, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${this.token}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Model gateway returned ${response.status} ${response.statusText}: ${await response.text()}`,
+      );
+    }
+
+    yield parseChatCompletion(await response.json());
   }
 }

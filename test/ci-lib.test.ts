@@ -1,7 +1,7 @@
 // test/ci-lib.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addedLines, guessLanguage, parseStyleViolations } from '../ci/lib';
+import { addedLines, guessLanguage, parseChatCompletion, parseStyleViolations } from '../ci/lib';
 
 test('guessLanguage maps known extensions and defaults to plaintext', () => {
   assert.equal(guessLanguage('app/main.py'), 'python');
@@ -61,4 +61,19 @@ test('parseStyleViolations does not match a different file path', () => {
 test('parseStyleViolations accepts colon and hyphen separators', () => {
   const review = ['x.py:1 - rule - why - Fix: do', 'x.py:2 : rule : why : Fix: do'].join('\n');
   assert.equal(parseStyleViolations(review, 'x.py').length, 2);
+});
+
+test('parseChatCompletion extracts the assistant content from an OpenAI-shaped body', () => {
+  const payload = { choices: [{ message: { role: 'assistant', content: 'hello world' } }] };
+  assert.equal(parseChatCompletion(payload), 'hello world');
+});
+
+test('parseChatCompletion throws on an unrecognised or empty response', () => {
+  assert.throws(() => parseChatCompletion({}), /Chat Completions contract/);
+  assert.throws(() => parseChatCompletion({ choices: [] }), /Chat Completions contract/);
+  assert.throws(
+    () => parseChatCompletion({ choices: [{ message: { content: '' } }] }),
+    /Chat Completions contract/,
+  );
+  assert.throws(() => parseChatCompletion(null), /Chat Completions contract/);
 });

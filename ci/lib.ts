@@ -25,6 +25,22 @@ export function guessLanguage(path: string): string {
   return LANGUAGE_BY_EXTENSION[ext] ?? 'plaintext';
 }
 
+/**
+ * Extract the assistant text from an OpenAI-compatible Chat Completions
+ * response. Kept pure (no fetch) so the gateway contract is unit-testable.
+ * Throws on a shape we don't recognise rather than yielding silent garbage.
+ */
+export function parseChatCompletion(payload: unknown): string {
+  const content = (payload as { choices?: Array<{ message?: { content?: unknown } }> })
+    ?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || content.length === 0) {
+    throw new Error(
+      'Model gateway response had no choices[0].message.content; check that the endpoint speaks the OpenAI Chat Completions contract.',
+    );
+  }
+  return content;
+}
+
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -1,15 +1,15 @@
 // ci/review-pr.ts
 /*
  * ┌──────────────────────────────────────────────────────────────────────────┐
- * │ DECISION REQUIRED — CI MODEL ACCESS                                        │
+ * │ CI MODEL ACCESS — OPT-IN                                                   │
  * │                                                                            │
  * │ vscode.lm does NOT exist in a GitHub Actions runner, so this script cannot │
- * │ use Copilot models. It reaches a model through CiModelProvider, which is a │
- * │ STUB with NO default endpoint. Before this workflow does anything useful   │
- * │ you must: (1) set DEVASSIST_MODEL_ENDPOINT and DEVASSIST_MODEL_TOKEN as    │
- * │ repo secrets, and (2) implement the request body in ci/CiModelProvider.ts  │
- * │ for your approved gateway. Until then the script posts nothing and emits a │
- * │ non-blocking warning. This is deliberate: we will not invent an endpoint.  │
+ * │ use Copilot models. It reaches a model through CiModelProvider, which      │
+ * │ speaks the OpenAI-compatible Chat Completions contract. It is opt-in: set  │
+ * │ DEVASSIST_MODEL_ENDPOINT and DEVASSIST_MODEL_TOKEN (and optionally         │
+ * │ DEVASSIST_MODEL) as repo secrets to point it at your approved gateway.     │
+ * │ Until both are set the script posts nothing and emits a non-blocking       │
+ * │ warning, so your code is never shipped to an endpoint you didn't choose.   │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 

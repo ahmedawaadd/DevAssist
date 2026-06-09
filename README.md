@@ -32,10 +32,10 @@ This is the whole reason DevAssist is built the way it is.
   external endpoint, and no telemetry. DevAssist can only reach a model that VS
   Code already exposes to you.
 - **CI is opt-in and refuses to guess.** The optional pull-request reviewer
-  (`ci/`) ships as a deliberate **stub with no default endpoint**. It will not
-  send your code anywhere until you explicitly point it at an approved gateway
-  (see [CI pull-request review](#ci-pull-request-review)). Until then it does
-  nothing but emit a non-blocking warning.
+  (`ci/`) ships **disabled, with no default endpoint**. It will not send your
+  code anywhere until you explicitly point it at an approved gateway via repo
+  secrets (see [CI pull-request review](#ci-pull-request-review)). Until both
+  secrets are set it does nothing but emit a non-blocking warning.
 
 ## Commands
 
@@ -43,7 +43,7 @@ Open the file you want to work on, then mention `@devassist` in chat with one of
 
 | Command     | What it does                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
-| `/tests`    | Generate Pytest unit tests for the active file (happy path, edge cases, error branches). |
+| `/tests`    | Generate idiomatic unit tests for the active file in its own language (Pytest, Vitest/Jest, JUnit, Go testing, RSpec, …), covering happy path, edge cases, and error branches. |
 | `/readme`   | Generate a README for the current module/repo from its code and file tree.  |
 | `/coverage` | Assess the active file's coverage and suggest concrete testability refactors. |
 | `/style`    | Review the active file against the project style guide.                      |
@@ -102,17 +102,25 @@ kept thin so the testable core has no editor dependency.
 `.github/workflows/devassist-pr.yml` can run the same style/coverage/tests
 prompts on every pull request and post the results as a review. Because
 `vscode.lm` does not exist in a GitHub Actions runner, this path needs its own
-model access, and it is **intentionally not wired up by default**.
+model access, and it is **opt-in: disabled until you configure it**.
 
-To enable it:
+[`ci/CiModelProvider.ts`](ci/CiModelProvider.ts) speaks the OpenAI-compatible
+**Chat Completions** contract (`POST <endpoint>` with a `messages` array and
+`Bearer` auth) — the shape exposed by Azure OpenAI, most enterprise LLM proxies
+(e.g. LiteLLM), and self-hosted gateways. To enable the reviewer, set these repo
+secrets:
 
-1. Set the repo secrets `DEVASSIST_MODEL_ENDPOINT` and `DEVASSIST_MODEL_TOKEN`
-   to point at your organization's approved model gateway.
-2. Implement the marked request body in [`ci/CiModelProvider.ts`](ci/CiModelProvider.ts)
-   to match that gateway's request/response contract.
+| Secret                     | Purpose                                                    |
+| -------------------------- | ---------------------------------------------------------- |
+| `DEVASSIST_MODEL_ENDPOINT` | Full Chat Completions URL of your approved gateway.        |
+| `DEVASSIST_MODEL_TOKEN`    | Bearer token for that gateway.                             |
+| `DEVASSIST_MODEL`          | Optional model/deployment name (defaults to `gpt-4o-mini`).|
 
-Until both are done, the workflow skips with a warning and sends nothing,
-by design, so your code is never shipped to an endpoint you didn't choose.
+Until both `DEVASSIST_MODEL_ENDPOINT` and `DEVASSIST_MODEL_TOKEN` are set, the
+workflow skips with a warning and sends nothing, by design, so your code is
+never shipped to an endpoint you didn't choose. If your gateway speaks a
+different contract, the single `sendRequest` method in `CiModelProvider.ts` is
+the only place to adapt.
 
 ## Project structure
 
@@ -127,8 +135,8 @@ src/
   handlers/             One handler per slash command (tests, readme, coverage, style)
 ci/
   review-pr.ts          Optional GitHub Actions PR reviewer
-  lib.ts                Pure CI helpers: language guess, diff parsing, review parsing
-  CiModelProvider.ts    CI model seam: a stub you must configure
+  lib.ts                Pure CI helpers: language guess, diff parsing, review + response parsing
+  CiModelProvider.ts    CI model seam: OpenAI-compatible client, opt-in via secrets
 test/                   node:test unit tests for the pure modules
 style-guide.md          The bundled default style guide
 ```

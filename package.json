@@ -1,7 +1,7 @@
 {
   "name": "devassist",
   "displayName": "DevAssist",
-  "description": "Pytest test generation, README generation, coverage/testability review, and style review — via Copilot models in chat and on pull requests.",
+  "description": "Unit-test generation, README generation, coverage/testability review, and style review — via Copilot models in chat and on pull requests.",
   "version": "0.1.0",
   "publisher": "devassist",
   "license": "MIT",
@@ -37,7 +37,7 @@
     "format": "prettier --check \"{src,ci,test}/**/*.ts\"",
     "format:write": "prettier --write \"{src,ci,test}/**/*.ts\"",
     "pretest": "npm run compile",
-    "test": "node --test \"out/test\"",
+    "test": "node --test out/test/*.test.js",
     "vscode:prepublish": "npm run compile",
     "ci:review": "node out/ci/review-pr.js"
   },
