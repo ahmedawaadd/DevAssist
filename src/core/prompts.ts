@@ -1,6 +1,6 @@
 // src/core/prompts.ts
 // Single source of truth for every model prompt. Pure module: no `vscode`,
-// no Node, no I/O — so it can be imported by both the extension and CI.
+// no Node, no I/O — so the prompts can be unit-tested without the editor host.
 
 export interface SourceFile {
   /** Workspace-relative path, e.g. "app/billing/invoice.py". */

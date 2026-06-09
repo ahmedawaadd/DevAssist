@@ -1,6 +1,6 @@
 # DevAssist
 
-A VS Code chat extension that generates Pytest tests, READMEs, coverage advice,
+A VS Code chat extension that generates tests, READMEs, coverage advice,
 and style reviews, **using the Copilot models you already have**.
 
 ## What it actually is
@@ -12,8 +12,9 @@ prompt, and hands that prompt to a Copilot chat model through VS Code's stable
 API. The model's answer is streamed straight back into the chat.
 
 In other words: the value here is the **prompts and the plumbing**, not a new
-model. You get a few opinionated, repeatable commands (like `/tests` for Python)
-layered on top of the Copilot subscription your organization already trusts.
+model. You get a few opinionated, repeatable commands (like `/tests`, which
+adapts to the file's language) layered on top of the Copilot subscription your
+organization already trusts.
 
 ```
 your code ──▶ DevAssist builds a prompt ──▶ vscode.lm (your Copilot model) ──▶ chat
@@ -31,11 +32,11 @@ This is the whole reason DevAssist is built the way it is.
 - **No third-party model service.** There is no hidden API key, no default
   external endpoint, and no telemetry. DevAssist can only reach a model that VS
   Code already exposes to you.
-- **CI is opt-in and refuses to guess.** The optional pull-request reviewer
-  (`ci/`) ships **disabled, with no default endpoint**. It will not send your
-  code anywhere until you explicitly point it at an approved gateway via repo
-  secrets (see [CI pull-request review](#ci-pull-request-review)). Until both
-  secrets are set it does nothing but emit a non-blocking warning.
+- **No path off your Copilot plan — by construction.** `vscode.lm` is the only
+  way DevAssist talks to a model, and it only exists inside the editor. There is
+  no CI integration, no configurable gateway, and no provider you could point at
+  an external endpoint. Because that escape hatch doesn't exist in the code,
+  there is nothing to misconfigure: your code cannot leave your Copilot plan.
 
 ## Commands
 
@@ -53,10 +54,9 @@ A bare `@devassist` (or an unknown command) prints this list.
 
 ### Style guide
 
-`/style` and the CI reviewer check code against a style guide. DevAssist uses
-`style-guide.md` from your workspace root if it exists, and otherwise falls back
-to the [bundled standard](style-guide.md) (Python-first, with language-agnostic
-rules).
+`/style` checks code against a style guide. DevAssist uses `style-guide.md` from
+your workspace root if it exists, and otherwise falls back to the
+[bundled standard](style-guide.md) (Python-first, with language-agnostic rules).
 
 ### Coverage
 
@@ -93,34 +93,19 @@ npm test             # compile, then run the node:test suite in out/test
 ```
 
 Tests live in `test/` and exercise the pure, host-independent logic — prompt
-construction (`src/core/prompts.ts`), Cobertura parsing (`src/core/coverage.ts`),
-and the CI diff/review helpers (`ci/lib.ts`). Anything that imports `vscode` is
-kept thin so the testable core has no editor dependency.
+construction (`src/core/prompts.ts`) and Cobertura parsing
+(`src/core/coverage.ts`). Anything that imports `vscode` is kept thin so the
+testable core has no editor dependency.
 
-## CI pull-request review
+## Why there's no CI / pull-request bot
 
-`.github/workflows/devassist-pr.yml` can run the same style/coverage/tests
-prompts on every pull request and post the results as a review. Because
-`vscode.lm` does not exist in a GitHub Actions runner, this path needs its own
-model access, and it is **opt-in: disabled until you configure it**.
-
-[`ci/CiModelProvider.ts`](ci/CiModelProvider.ts) speaks the OpenAI-compatible
-**Chat Completions** contract (`POST <endpoint>` with a `messages` array and
-`Bearer` auth) — the shape exposed by Azure OpenAI, most enterprise LLM proxies
-(e.g. LiteLLM), and self-hosted gateways. To enable the reviewer, set these repo
-secrets:
-
-| Secret                     | Purpose                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `DEVASSIST_MODEL_ENDPOINT` | Full Chat Completions URL of your approved gateway.        |
-| `DEVASSIST_MODEL_TOKEN`    | Bearer token for that gateway.                             |
-| `DEVASSIST_MODEL`          | Optional model/deployment name (defaults to `gpt-4o-mini`).|
-
-Until both `DEVASSIST_MODEL_ENDPOINT` and `DEVASSIST_MODEL_TOKEN` are set, the
-workflow skips with a warning and sends nothing, by design, so your code is
-never shipped to an endpoint you didn't choose. If your gateway speaks a
-different contract, the single `sendRequest` method in `CiModelProvider.ts` is
-the only place to adapt.
+A natural ask is "run these prompts on every PR." DevAssist deliberately does
+**not**, because a GitHub Actions runner has no `vscode.lm` — the only way to
+reach Copilot is from inside the editor. Any CI version would have to send your
+code to some *other* model endpoint, which is exactly the data-protection
+boundary this tool refuses to cross. So DevAssist stays editor-only: every
+request goes through your authenticated Copilot session, and there is no
+configuration that could route it anywhere else.
 
 ## Project structure
 
@@ -133,16 +118,12 @@ src/
     coverage.ts         Pure Cobertura parsing (no vscode, unit-tested)
     context.ts          Turns editor/workspace state into prompt inputs
   handlers/             One handler per slash command (tests, readme, coverage, style)
-ci/
-  review-pr.ts          Optional GitHub Actions PR reviewer
-  lib.ts                Pure CI helpers: language guess, diff parsing, review + response parsing
-  CiModelProvider.ts    CI model seam: OpenAI-compatible client, opt-in via secrets
 test/                   node:test unit tests for the pure modules
 style-guide.md          The bundled default style guide
 ```
 
-`prompts.ts` is deliberately dependency-free so both the editor extension and
-the CI script share the exact same prompts.
+`prompts.ts` is deliberately dependency-free so the prompts can be unit-tested
+without spinning up the editor host.
 
 ## License
 
