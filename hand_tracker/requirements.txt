@@ -1,0 +1,13 @@
+# Pinned versions known to work together.
+#
+# mediapipe 0.10.21 ships a working mediapipe.solutions.hands (the simple,
+# "legacy" API). Newer releases removed/broke mediapipe.solutions, which is the
+# bug that makes "import mediapipe.solutions" fail. Pinning avoids that.
+#
+# opencv-python 4.10.0.84 is compatible with this mediapipe and with the numpy
+# that mediapipe pulls in. Keeping it pinned avoids surprise breakages.
+#
+# Use Python 3.11 or 3.12 (NOT 3.13+) — mediapipe 0.10.21 has no wheels for
+# 3.13, so pip would try (and fail) to build from source on Windows.
+mediapipe==0.10.21
+opencv-python==4.10.0.84
